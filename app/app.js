@@ -100,6 +100,53 @@ app.post('/api/v1/users/:id/following/:following_id', async (req, res) => {
   }
 })
 
+// Get follower users
+app.get('/api/v1/users/:id/followers', (req, res) => {
+  // Connect database
+  const db = new sqlite3.Database(dbPath)
+  const id = req.params.id
+
+  db.all(`SELECT * FROM following LEFT JOIN users ON following.following_id = users.id WHERE followed_id = ${id}`, (err, rows) => {
+    if (!rows) {
+      res.status(404).send( { error: "Not found" } )
+    } else {
+      res.status(200).json(rows)
+    }
+  })
+
+  db.close()
+})
+
+// unfollowing a user
+app.delete('/api/v1/users/:id/following/:following_id', async (req, res) => {
+  const id = req.params.id
+  const following_id = req.params.following_id
+  if (!following_id) {
+    res.status(400).send( { error: "フォロー解除するユーザが指定されていません。" } )
+  } else {
+    const db = new sqlite3.Database(dbPath)
+
+    db.get(`SELECT * FROM following WHERE following_id=${id} AND followed_id=${following_id}`, async (err, row) => {
+
+      if (!row) {
+        res.status(404).send( { error: "フォローされてません。" } )
+      } else {
+        try {
+          await run(
+            `DELETE FROM following WHERE following_id=${id} AND followed_id=${following_id}`,
+            db
+          )
+          res.status(200).send( { message: "フォローを解除しました！" } )
+        } catch (e) {
+          res.status(500).send( { error: e } )
+        }
+      }
+
+    })
+    db.close()
+  }
+})
+
 // Search users matching keyword
 app.get('/api/v1/search', (req, res) => {
   // Connect database
